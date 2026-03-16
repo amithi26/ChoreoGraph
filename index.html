@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vibe Conductor — Amithi Pathak</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@1,6..96,900&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Mono:wght@300;400&family=Pinyon+Script&display=swap" rel="stylesheet" />
+  
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    :root {
+      --bg: #030308;
+      --text: #f8f8fc;
+      --gold: #f0c040;
+      --cyan: #40e0f0;
+      --violet: #c040f0;
+      --font-body: 'Cormorant Garamond', serif;
+      --font-display: 'Bodoni Moda', serif;
+      --font-ui: 'DM Mono', monospace;
+    }
+
+    /* Add this inside the <style> tag in index.html */
+    #skip-intro {
+      position: fixed;
+      top: 40px;
+      right: 50px;
+      background: none;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--gold); /* This matches your :root gold */
+      font-family: var(--font-ui); /* This matches your :root DM Mono */
+      font-size: 0.65rem;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      padding: 12px 20px;
+      cursor: pointer;
+      z-index: 100;
+      transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+      opacity: 0.6;
+    }
+
+    #skip-intro:hover {
+      opacity: 1;
+      border-color: var(--violet);
+      background: rgba(192, 64, 240, 0.05);
+      box-shadow: 0 0 20px rgba(192, 64, 240, 0.15);
+      color: var(--text);
+    }
+
+
+    html, body {
+      width: 100vw; height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      font-family: var(--font-body);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── ATMOSPHERIC LAYERS ── */
+    #canvas { position: fixed; inset: 0; z-index: 0; }
+    #noise { position: fixed; inset: 0; background: url('https://grainy-gradients.vercel.app/noise.svg'); opacity: 0.05; z-index: 2; pointer-events: none; }
+    #vignette { position: fixed; inset: 0; background: radial-gradient(circle at 50% 50%, transparent 10%, rgba(3,3,8,0.9) 100%); z-index: 1; pointer-events: none; }
+
+    #greeting {
+      position: fixed; top: 40px; left: 50px;
+      font-family: var(--font-ui); font-size: 0.6rem; letter-spacing: 0.4em;
+      text-transform: uppercase; color: var(--gold);
+      opacity: 0; z-index: 20; transition: opacity 2s ease;
+    }
+    #greeting.show { opacity: 1; }
+
+    /* ── STAGE ── */
+    #stage { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
+    .beat {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 0 10vw; opacity: 0;
+      transition: opacity 1.2s ease-in-out; text-align: center;
+    }
+    .beat.active { opacity: 1; }
+    .beat-text { font-weight: 300; font-size: clamp(1.8rem, 3.5vw, 2.8rem); line-height: 1.6; max-width: 1100px; }
+
+    /* TYPOGRAPHY REVEAL */
+    .ch {
+      display: inline-block; opacity: 0; filter: blur(12px); transform: translateY(15px);
+      transition: opacity 0.6s ease, filter 0.7s ease, transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .ch.shown { opacity: 1; filter: blur(0); transform: translateY(0); }
+
+    /* ── MOVEMENT — SVG HANDWRITING ── */
+    .k-movement {
+      display: inline-block;
+      text-align: center;
+      vertical-align: middle;
+      margin: 0 0.1em;
+      line-height: 1;
+      transform: translateY(-0.15em);
+    }
+
+    @keyframes drift {
+      0%   { transform: translate(0, 0) rotate(-0.5deg); }
+      100% { transform: translate(3px, -4px) rotate(1deg); }
+    }
+
+    /* ── INK WORD — hollow outline, black fill ── */
+    .k-ink {
+      display: inline-block;
+      font-family: var(--font-display);
+      font-style: italic; font-weight: 900;
+      font-size: 2.2em;
+      /* Black fill with violet stroke via SVG text technique */
+      color: transparent;
+      -webkit-text-fill-color: transparent;
+      -webkit-text-stroke: 1.8px var(--violet);
+      paint-order: stroke fill;
+      vertical-align: middle;
+      position: relative;
+      letter-spacing: 0.05em;
+      z-index: 15;
+      line-height: 1.2;
+      filter: drop-shadow(0 0 12px rgba(192, 64, 240, 0.6)) drop-shadow(0 0 30px rgba(192, 64, 240, 0.3));
+    }
+    .ch-ink { display: inline-block; }
+
+    /* ── BUTTON ── */
+    #enter-wrap { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); opacity: 0; transition: opacity 2s; z-index: 30; }
+    #enter-wrap.show { opacity: 1; }
+    #enter-btn {
+      background: none; border: 1px solid rgba(255,255,255,0.1); color: var(--text);
+      font-family: var(--font-ui); font-size: 0.95rem; letter-spacing: 0.5em;
+      text-transform: uppercase; padding: 25px 70px; cursor: pointer; transition: 0.6s;
+    }
+    #enter-btn:hover { border-color: var(--violet); background: rgba(192,64,240,0.05); box-shadow: 0 0 30px rgba(192,64,240,0.15); }
+
+    .cyan { color: var(--cyan); font-style: italic; }
+    .violet { color: var(--violet); font-style: italic; }
+    .gold { color: var(--gold); font-style: italic; }
+  </style>
+</head>
+<body>
+  <button id="skip-intro">Skip Intro</button>
+
+<div id="noise"></div>
+<canvas id="canvas"></canvas>
+<div id="vignette"></div>
+
+
+<div id="stage"></div>
+
+<div id="enter-wrap">
+  <button id="enter-btn">The Stage is Yours</button>
+</div>
+
+<script>
+// ─── GENERATIVE INK & PARTICLE SYSTEM ───
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let pts = [];
+let globalInkLines = []; // New global array for full-screen ink
+
+function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
+resize(); window.addEventListener('resize', resize);
+
+// Background Ambience Particles
+for(let i=0; i<60; i++) {
+  const d = Math.random();
+  pts.push({ x: Math.random()*innerWidth, y: Math.random()*innerHeight, vx: (Math.random()-.5)*d*0.5, vy: (Math.random()-.5)*d*0.5 - 0.02, r: d*2, a: d*0.3 });
+}
+
+// ─── FULL-SCREEN INK CHOREOGRAPHY ───
+function spawnInkGesture() {
+  const inkWord = document.querySelector('.k-ink');
+  
+  // Find exactly where the word "ink" is on the screen to use as the starting point
+  const rect = inkWord ? inkWord.getBoundingClientRect() : { left: innerWidth/2, top: innerHeight/2, width: 0, height: 0 };
+  const startX = rect.left + (rect.width / 2);
+  const startY = rect.top + (rect.height / 2);
+
+  const numRibbons = 7;  // fewer = less overwhelming
+  
+  for(let i=0; i<numRibbons; i++) {
+    globalInkLines.push({
+      x: startX,
+      y: startY,
+      angle: Math.random() * Math.PI * 2,
+      angularVelocity: (Math.random() - 0.5) * 0.08,  // gentler turns
+      speed: 1.5 + Math.random() * 2.5,  // much slower drift
+      
+      points: [],
+      life: 1.0,
+      birthDelay: i * 180,  // stagger each ribbon's start
+      born: false,
+      birthTime: performance.now(),
+      
+      color: `rgba(${150 + Math.random()*60}, ${30 + Math.random()*50}, ${220 + Math.random()*35},`, 
+      
+      thicknessBase: 1 + Math.random() * 3,  // thinner, more delicate
+      phase: Math.random() * Math.PI * 2,
+      wobbleSpeed: 0.03 + Math.random() * 0.05
+    });
+  }
+}
+
+// ─── MAIN RENDER LOOP ───
+(function tick(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  
+  // Render Ambient Particles
+  pts.forEach(p => {
+    p.x+=p.vx; p.y+=p.vy;
+    if(p.x<0||p.x>canvas.width) p.vx*=-1; if(p.y<0) p.y=canvas.height;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(240,192,64,${p.a})`; ctx.fill();
+  });
+
+  // Render Full-Screen Dancing Ink
+  for (let i = globalInkLines.length - 1; i >= 0; i--) {
+    const ribbon = globalInkLines[i];
+
+    // Staggered birth
+    if (!ribbon.born) {
+      if (performance.now() - ribbon.birthTime < ribbon.birthDelay) continue;
+      ribbon.born = true;
+    }
+
+    ribbon.life -= 0.0015; // slower fade — longer lifespan
+    
+    if (ribbon.life <= 0) { 
+      globalInkLines.splice(i, 1); 
+      continue; 
+    }
+
+    // Fade in over first 20% of life for a gentle bloom
+    const fadeIn = Math.min(1, (1 - ribbon.life) / 0.15);
+
+    ribbon.angle += ribbon.angularVelocity;
+    ribbon.angularVelocity += (Math.random() - 0.5) * 0.008;
+    ribbon.angularVelocity = Math.max(-0.09, Math.min(0.09, ribbon.angularVelocity));
+
+    ribbon.x += Math.cos(ribbon.angle) * ribbon.speed;
+    ribbon.y += Math.sin(ribbon.angle) * ribbon.speed;
+
+    if (ribbon.x < 0 || ribbon.x > canvas.width) { 
+      ribbon.angle = Math.PI - ribbon.angle; 
+      ribbon.x = Math.max(0, Math.min(canvas.width, ribbon.x));
+    }
+    if (ribbon.y < 0 || ribbon.y > canvas.height) { 
+      ribbon.angle = -ribbon.angle; 
+      ribbon.y = Math.max(0, Math.min(canvas.height, ribbon.y));
+    }
+
+    ribbon.points.push({ x: ribbon.x, y: ribbon.y });
+    if (ribbon.points.length > 160) ribbon.points.shift();
+
+    if (ribbon.points.length < 2) continue;
+
+    ctx.beginPath();
+    ctx.moveTo(ribbon.points[0].x, ribbon.points[0].y);
+    for (let p = 1; p < ribbon.points.length; p++) {
+      ctx.lineTo(ribbon.points[p].x, ribbon.points[p].y);
+    }
+
+    const currentThickness = ribbon.thicknessBase + Math.sin(ribbon.life * 80 * ribbon.wobbleSpeed + ribbon.phase) * (ribbon.thicknessBase * 0.5);
+    const alpha = fadeIn * ribbon.life * 0.55; // softer overall opacity
+
+    ctx.strokeStyle = ribbon.color + alpha + ')';
+    ctx.lineWidth = Math.max(0.3, currentThickness * ribbon.life);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    
+    ctx.shadowColor = 'rgba(192, 64, 240, 0.2)';
+    ctx.shadowBlur = 8 * ribbon.life;
+    
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  requestAnimationFrame(tick);
+})();
+
+// ─── THE NARRATIVE BEATS ───
+const BEATS = [
+  { hold: 2500, lines: [[{t:"I'm Amithi. ", c:'gold'}], [{t:"And my life has been defined by"}], [{t:"movement.", k:'movement'}]] },
+  { hold: 2200, lines: [[{t:"As an artist, developer, musician, athlete,"}], [{t:"everything I do "}, {t:"starts"}, {t:" with a gesture."}]] },
+  { hold: 2200, lines: [[{t:"When I hear "}, {t:"music,"}], [{t:"I dance as if my arms have"}], [{t:"ink", k:'ink'}], [{t:"attached,"}], [{t:"as if I am a composer"}], [{t:"simultaneously scoring and painting my own reality."}]] },
+  { hold: 2200, lines: [[{t:"And when I design tools, "}], [{t:"I want that "}, {t:"fluidity"}, {t:" to translate."}]] },
+  { hold: 0, lines: [[{t:"This project is an attempt at "}, {t:"visualizing"}], [{t:"the magic I feel"}], [{t:"when movement "}, {t:"becomes"}, {t:" sound."}]] }
+];
+
+const stage = document.getElementById('stage');
+const panels = [];
+
+BEATS.forEach(beat => {
+  const panel = document.createElement('div');
+  panel.className = 'beat';
+  const tw = document.createElement('div');
+  tw.className = 'beat-text';
+  const charSpans = [];
+
+  beat.lines.forEach((line, li) => {
+    if (li > 0) tw.appendChild(document.createElement('br'));
+    line.forEach(part => {
+      let container = tw;
+      const isMove = part.k === 'movement';
+      const isInk = part.k === 'ink';
+      
+      if(isMove || isInk) {
+        const spanWrap = document.createElement('span');
+        spanWrap.className = isMove ? 'k-movement' : 'k-ink';
+        tw.appendChild(spanWrap);
+        container = spanWrap;
+      }
+      
+      if (isMove) {
+        // SVG <text> with Pinyon Script — stroke-dashoffset draw animation on actual letterforms
+        const svgNS = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(svgNS, 'svg');
+        svg.setAttribute('id', 'movement-svg');
+        svg.setAttribute('viewBox', '0 0 620 110');
+        svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        svg.style.cssText = 'width:clamp(420px,64vw,900px);height:auto;overflow:visible;display:inline-block;vertical-align:middle;margin:0;';
+
+        const txt = document.createElementNS(svgNS, 'text');
+        txt.setAttribute('x', '310');   // centered in viewBox
+        txt.setAttribute('y', '82');
+        txt.setAttribute('text-anchor', 'middle');
+        txt.setAttribute('font-family', "'Pinyon Script', cursive");
+        txt.setAttribute('font-size', '120');
+        txt.setAttribute('fill', 'none');
+        txt.setAttribute('stroke', '#f0c040');
+        txt.setAttribute('stroke-width', '1.0');
+        txt.setAttribute('stroke-linecap', 'round');
+        txt.setAttribute('stroke-linejoin', 'round');
+        txt.setAttribute('paint-order', 'stroke fill');
+        txt.textContent = 'movement.';
+        txt.style.cssText = `
+          stroke-dasharray: 5000;
+          stroke-dashoffset: 5000;
+          transition: stroke-dashoffset 5s cubic-bezier(0.33, 0, 0.27, 1);
+          filter: drop-shadow(0 0 18px rgba(240,192,64,0.35));
+        `;
+
+        svg.appendChild(txt);
+        container.appendChild(svg);
+
+        // After font loads & renders, update dasharray to actual computed length
+        setTimeout(() => {
+          try {
+            const len = txt.getComputedTextLength() * 4;
+
+            // Prevent this setup step from triggering an unintended draw animation
+            txt.style.transition = 'none';
+            txt.style.strokeDasharray = len;
+            txt.style.strokeDashoffset = len;
+
+            // Force a reflow so the browser applies the “hidden” state before we restore the animation
+            void txt.getBoundingClientRect();
+
+        txt.style.transition = 'stroke-dashoffset 5s cubic-bezier(0.45, 0, 0.9, 1)';
+          } catch(e) {}
+        }, 200);
+
+        charSpans.push({ el: txt, isMoveWord: true });
+      } else {
+        for(let i=0; i<part.t.length; i++) {
+          const ch = part.t[i];
+          if(ch === ' ') { container.appendChild(document.createTextNode(' ')); continue; }
+          const span = document.createElement('span');
+          span.className = 'ch' + (part.c ? ' '+part.c : '') + (isInk ? ' ch-ink' : '');
+          span.textContent = ch;
+          if(isInk) span.style.animationDelay = `${Math.random()*4}s`;
+          container.appendChild(span);
+          charSpans.push({ el: span, isPunct: /[.!?,;—]/.test(ch), isInkTrigger: isInk });
+        }
+      }
+    });
+  });
+  panel.appendChild(tw);
+  stage.appendChild(panel);
+  panels.push({ panel, charSpans, hold: beat.hold });
+});
+
+async function run(i) {
+  if (i >= panels.length) return;
+  if (i > 0) panels[i-1].panel.classList.remove('active');
+  panels[i].panel.classList.add('active');
+  
+  for (const item of panels[i].charSpans) {
+    if (item.isMoveWord) {
+      // Trigger SVG stroke draw: animate dashoffset to 0
+      item.el.style.strokeDashoffset = '0';
+    } else {
+      item.el.classList.add('shown');
+    }
+    
+    // Trigger the full-screen ink explosion
+    if(item.isInkTrigger) spawnInkGesture();
+    
+    let delay = 50;
+    if (item.isMoveWord) {
+      delay = 500; // Wait for the slower 5s stroke draw with less extra pause
+    } else if (item.isPunct) {
+      delay = 500;
+    }
+    
+    await new Promise(r => setTimeout(r, delay));
+  }
+
+  if (i < panels.length - 1) {
+    await new Promise(r => setTimeout(r, panels[i].hold));
+    run(i+1);
+  } else {
+    document.getElementById('enter-wrap').classList.add('show');
+  }
+}
+
+// Init
+setTimeout(() => { 
+  run(0); 
+}, 1500);
+
+document.getElementById('enter-btn').onclick = () => {
+  document.body.style.opacity = '0';
+  document.body.style.transition = 'opacity 1.5s ease-in-out';
+  setTimeout(() => window.location.href = 'app.html', 1500);
+};
+document.getElementById('skip-intro').onclick = () => {
+  document.body.style.opacity = '0';
+  document.body.style.transition = 'opacity 0.8s ease-in-out';
+  setTimeout(() => window.location.href = 'app.html', 800);
+};
+
+</script>
+</body>
+</html>
