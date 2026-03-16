@@ -80,7 +80,7 @@
       transition: opacity 1.2s ease-in-out; text-align: center;
     }
     .beat.active { opacity: 1; }
-    .beat-text { font-weight: 300; font-size: clamp(1.8rem, 3.5vw, 2.8rem); line-height: 1.6; max-width: 1100px; }
+    .beat-text { font-weight: 300; font-size: clamp(1.8rem, 3.5vw, 2.8rem); line-height: 1.6; max-width: 1100px; width: 100%; text-align: center; }
 
     /* TYPOGRAPHY REVEAL */
     .ch {
@@ -137,6 +137,43 @@
     .cyan { color: var(--cyan); font-style: italic; }
     .violet { color: var(--violet); font-style: italic; }
     .gold { color: var(--gold); font-style: italic; }
+
+    .role-ticker {
+      display: block;
+      position: relative;
+      height: 1.2em;
+      margin: 0 auto -1.4em;
+    }
+    .role-ticker-inner {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      height: 1.2em;
+      white-space: nowrap;
+    }
+    .role-item {
+      display: block;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%) translateY(12px);
+      height: 1.2em;
+      line-height: 1.2em;
+      text-align: center;
+      opacity: 0;
+      transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.16,1,0.3,1);
+      color: var(--cyan);
+      font-style: bold;
+      white-space: nowrap;
+    }
+    .role-item.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    .role-item.exit {
+      opacity: 0;
+      transform: translateX(-50%) translateY(-12px);
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
   </style>
 </head>
 <body>
@@ -283,7 +320,7 @@ function spawnInkGesture() {
 // ─── THE NARRATIVE BEATS ───
 const BEATS = [
   { hold: 2500, lines: [[{t:"I'm Amithi. ", c:'gold'}], [{t:"And my life has been defined by"}], [{t:"movement.", k:'movement'}]] },
-  { hold: 2200, lines: [[{t:"As an artist, developer, musician, athlete,"}], [{t:"everything I do "}, {t:"starts"}, {t:" with a gesture."}]] },
+  { hold: 2200, lines: [[{t:"As"}], [{t:"ROLES_TICKER"}], [{t:"everything I do "}, {t:"starts"}, {t:" with a gesture."}]] },
   { hold: 2200, lines: [[{t:"When I hear "}, {t:"music,"}], [{t:"I dance as if my arms have"}], [{t:"ink", k:'ink'}], [{t:"attached,"}], [{t:"as if I am a composer"}], [{t:"simultaneously scoring and painting my own reality."}]] },
   { hold: 2200, lines: [[{t:"And when I design tools, "}], [{t:"I want that "}, {t:"fluidity"}, {t:" to translate."}]] },
   { hold: 0, lines: [[{t:"This project is an attempt at "}, {t:"visualizing"}], [{t:"the magic I feel"}], [{t:"when movement "}, {t:"becomes"}, {t:" sound."}]] }
@@ -301,7 +338,28 @@ BEATS.forEach(beat => {
 
   beat.lines.forEach((line, li) => {
     if (li > 0) tw.appendChild(document.createElement('br'));
+
     line.forEach(part => {
+      // Special: rolling titles ticker
+      if (part.t === 'ROLES_TICKER') {
+        const ticker = document.createElement('span');
+        ticker.className = 'role-ticker';
+        ticker.id = 'role-ticker';
+        const inner = document.createElement('span');
+        inner.className = 'role-ticker-inner';
+        ['an artist,', 'a developer,', 'a musician,', 'an athlete,'].forEach((role, ri) => {
+          const item = document.createElement('span');
+          item.className = 'role-item';
+          item.dataset.roleIdx = ri;
+          item.textContent = role;
+          inner.appendChild(item);
+        });
+        ticker.appendChild(inner);
+        tw.appendChild(ticker);
+        charSpans.push({ el: ticker, isRoleTicker: true });
+        return;
+      }
+
       let container = tw;
       const isMove = part.k === 'movement';
       const isInk = part.k === 'ink';
@@ -388,7 +446,24 @@ async function run(i) {
   panels[i].panel.classList.add('active');
   
   for (const item of panels[i].charSpans) {
-    if (item.isMoveWord) {
+    if (item.isRoleTicker) {
+      // Start the rolling ticker cycle
+      const items = item.el.querySelectorAll('.role-item');
+      let roleIdx = 0;
+      items[0].classList.add('visible');
+      const cycleRole = () => {
+        items[roleIdx].classList.add('exit');
+        items[roleIdx].classList.remove('visible');
+        setTimeout(() => items[roleIdx].classList.remove('exit'), 400);
+        roleIdx = (roleIdx + 1) % items.length;
+        items[roleIdx].classList.add('visible');
+      };
+      // Store interval so we can clear it later if needed
+      item.el._interval = setInterval(cycleRole, 2000);
+      let delay = 2000 * items.length + 400; // wait for all roles to show
+      await new Promise(r => setTimeout(r, delay));
+      clearInterval(item.el._interval);
+    } else if (item.isMoveWord) {
       // Trigger SVG stroke draw: animate dashoffset to 0
       item.el.style.strokeDashoffset = '0';
     } else {
